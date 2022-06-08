@@ -61,3 +61,9 @@ https://xxxxxxxxxxxxx.lambda-url.ap-northeast-1.on.aws/?api=ec2:describe_availab
 - ```cache=n``` option expiration time in seconds 
 - ```flatten``` option is enabled only when  ```ec2:describe_instances``` called
 - Get Base64 PNG graphic data only when ```cloudwatch:get_metric_widget_image``` called
+
+## Installation
+
+Use AWS CloudFormation template.
+
+[cfn_lambda-describe-api.yaml](src/cfn_lambda-describe-api.yaml)
