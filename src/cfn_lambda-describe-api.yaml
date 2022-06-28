@@ -40,6 +40,8 @@ Resources:
 
             ERR_MSG_KEY = 'Error_Message'
 
+            REMOVE_KEY_LIST = os.getenv('remove_key_list') or 'ResponseMetadata Marker NextToken nextToken IsTruncated MaxResults'
+
             def access_permission(event):
 
                 if not isinstance(event.get('requestContext', {}).get('http', {}).get('sourceIp'), str):
@@ -126,6 +128,15 @@ Resources:
                     content = {
                         'Instances' : sum( [ reservation['Instances'] for reservation in content.get('Reservations') ], [] )
                     }
+
+                # URL parameter has "simpletag=Tags" or "simpletag=TagList"
+                # Before :  [ { "Key": "Name", "Value": "Server1" }, { "Key": "Env", "Value": "Prod" } ]
+                # After  :  { "Name": "Server1", "Env": "Prod" }
+                if params.get('simpletag') != None and type(content) is dict and len(list(content)) >= 1 and type( list(content.values())[0] ) is list:
+                    for inst in list(content.values())[0]:
+                        if params['simpletag'] not in inst:
+                            continue
+                        inst[ params['simpletag'] ] = { x['Key']: x['Value'] for x in inst[ params['simpletag'] ] }
 
                 return content
 
@@ -240,7 +251,7 @@ Resources:
 
                                 for k in func_out.keys():
 
-                                    if k not in ['ResponseMetadata', 'Marker', 'NextToken', 'IsTruncated']:
+                                    if k not in REMOVE_KEY_LIST.split(' '):
                                         content.setdefault(k, []).extend(func_out[k])
 
                         else:
@@ -252,8 +263,6 @@ Resources:
 
                             if isinstance(content, dict):
                                 content.pop('ResponseMetadata', None)
-
-                            print(content)
 
                         if api_failed:
                             # NG (HTTP 400)
@@ -330,6 +339,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   LambdaUrl:
     Type: AWS::Lambda::Url

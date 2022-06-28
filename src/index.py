@@ -13,6 +13,8 @@ S3_BUCKET = os.getenv('s3_bucket') or ''
 
 ERR_MSG_KEY = 'Error_Message'
 
+REMOVE_KEY_LIST = os.getenv('remove_key_list') or 'ResponseMetadata Marker NextToken nextToken IsTruncated MaxResults'
+
 def access_permission(event):
 
     if not isinstance(event.get('requestContext', {}).get('http', {}).get('sourceIp'), str):
@@ -99,6 +101,15 @@ def customize_content_after_s3put(content, params):
         content = {
             'Instances' : sum( [ reservation['Instances'] for reservation in content.get('Reservations') ], [] )
         }
+
+    # URL parameter has "simpletag=Tags" or "simpletag=TagList"
+    # Before :  [ { "Key": "Name", "Value": "Server1" }, { "Key": "Env", "Value": "Prod" } ]
+    # After  :  { "Name": "Server1", "Env": "Prod" }
+    if params.get('simpletag') != None and type(content) is dict and len(list(content)) >= 1 and type( list(content.values())[0] ) is list:
+        for inst in list(content.values())[0]:
+            if params['simpletag'] not in inst:
+                continue
+            inst[ params['simpletag'] ] = { x['Key']: x['Value'] for x in inst[ params['simpletag'] ] }
 
     return content
 
@@ -213,7 +224,7 @@ def lambda_handler(event, context):
 
                     for k in func_out.keys():
 
-                        if k not in ['ResponseMetadata', 'Marker', 'NextToken', 'IsTruncated']:
+                        if k not in REMOVE_KEY_LIST.split(' '):
                             content.setdefault(k, []).extend(func_out[k])
 
             else:
@@ -225,8 +236,6 @@ def lambda_handler(event, context):
 
                 if isinstance(content, dict):
                     content.pop('ResponseMetadata', None)
-
-                print(content)
 
             if api_failed:
                 # NG (HTTP 400)
