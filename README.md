@@ -49,6 +49,10 @@ https://xxxxxxxxxxxxx.lambda-url.ap-northeast-1.on.aws/?api=ec2:describe_availab
 }
 ```
 
+### Other examples
+
+[examples.md](examples.md)
+
 <br>
 
 ## Advantages compared to normal AWS API

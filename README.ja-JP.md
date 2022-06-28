@@ -48,6 +48,11 @@ https://xxxxxxxxxxxxx.lambda-url.ap-northeast-1.on.aws/?api=ec2:describe_availab
     ]
 }
 ```
+
+### その他の使用例
+
+[examples.md](examples.md)
+
 <br>
 
 ## 通常のAWS API実行と比較した利点
