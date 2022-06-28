@@ -59,6 +59,7 @@ https://xxxxxxxxxxxxx.lambda-url.ap-northeast-1.on.aws/?api=ec2:describe_availab
 - ```region=us-east-1``` specific region option instead of default region
 - Use S3 bucket as cache
 - ```cache=n``` option expiration time in seconds 
+- ```simpletag=Tags``` option convert complex tags to simple tags
 - ```flatten``` option is enabled only when  ```ec2:describe_instances``` called
 - Get Base64 PNG graphic data only when ```cloudwatch:get_metric_widget_image``` called
 

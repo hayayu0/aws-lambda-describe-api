@@ -58,6 +58,7 @@ https://xxxxxxxxxxxxx.lambda-url.ap-northeast-1.on.aws/?api=ec2:describe_availab
 - ```region=us-east-1``` デフォルトリージョンの代わりにリージョン指定のオプション
 - S3バケットをキャッシュとして使用する
 - ```cache=n``` キャッシュの有効期限を秒で指定
+- ```simpletag=Tags``` 複雑なタグ構造をシンプルなタグ構造に変換
 - ```flatten``` フラット化オプション  ```ec2:describe_instances``` 専用
 - Base64形式のPNG画像文字列を返す ```cloudwatch:get_metric_widget_image``` 専用
 
