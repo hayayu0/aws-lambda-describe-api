@@ -170,7 +170,7 @@
 **?api=ec2:describe_aabbcc**
 
 ```json
-{"ERROR":"'describe_aabbcc'"}
+{"ERROR":"'describe_aabbcc' provably wrong api name"}
 ```
 
 ---

@@ -257,7 +257,7 @@ def lambda_handler(event, context):
     
         except Exception as e:
             # NG (HTTP 400)
-            return return_to_client({ ERR_MSG_KEY : f'{e} provable wrong api name' }, **return_opt)
+            return return_to_client({ ERR_MSG_KEY : f'{e} provably wrong api name' }, **return_opt)
 
         return_opt['modified_time'] = datetime.now(timezone.utc)
 
