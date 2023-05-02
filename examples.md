@@ -125,6 +125,14 @@
 
 ---
 
+**?api=ec2:describe_network_interfaces&select=NetworkInterfaceId:PrivateIpAddresses..PrivateIpAddress**
+
+```json
+{"NetworkInterfaces": [{"NetworkInterfaceId": "eni-xxxxxxxx", "PrivateIpAddresses..PrivateIpAddress": ["172.31.x.x"]}, {"NetworkInterfaceId": "eni-xxxxxx", "PrivateIpAddresses..PrivateIpAddress": ["172.31.x.x"]} ]}
+```
+
+---
+
 **?api=ec2:describe_availability_zones&cache=1**
 
 **?api=ec2:describe_availability_zones&cache=999999999**
