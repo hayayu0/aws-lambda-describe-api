@@ -2,6 +2,27 @@
 # web browsers) and relay outputs back to the clients
 # The function behaves as a proxy (AWS API proxy)
 
+# required IAM policies: ReadOnlyAccess, AWSLambdaBasicExecutionRole
+# desired IAM policy: AmazonS3FullAccess (or your S3 custom policy)
+
+# sample Lambda environment (permit all source IPs)
+# - Name: "source_ip_prefix_list"  Value: "1 2 3 4 5 6 7 8 9"
+# sample Test Event JSON
+'''
+{
+  "requestContext": {
+    "http": {
+      "sourceIp": "12.34.56.78"
+    }
+  },
+  "queryStringParameters": {
+    "api": "ec2:describe_network_interfaces",
+    "select": "NetworkInterfaceId:PrivateIpAddresses..PrivateIpAddress",
+    "cache": "600"
+  }
+}
+'''
+
 import json
 import boto3
 import re
@@ -18,12 +39,12 @@ REMOVE_KEY_LIST = os.getenv('remove_key_list') or 'ResponseMetadata Marker NextT
 def access_permission(event):
 
     if not isinstance(event.get('requestContext', {}).get('http', {}).get('sourceIp'), str):
-       return 'Access Denied'
+        return 'Access Denied'
 
     for ip_prefix in os.getenv('source_ip_prefix_list').split(' '):
-       if event['requestContext']['http']['sourceIp'].startswith(ip_prefix):
-           # OK
-           return None
+        if event['requestContext']['http']['sourceIp'].startswith(ip_prefix):
+            # OK
+            return None
 
     # NG
     return 'Access Denied'
@@ -40,10 +61,10 @@ def url_param_validator(params):
     if re.match(r'[a-z][a-z0-9_\-]{1,32}\:(describe|list|get)_[a-z0-9_]{1,60}$', params['api']) == None:
         return None, 'invalid api parameter.  OK example: api=ec2:describe_subnets'
 
-    # region
+    # params['region']
     params.setdefault('region', (os.getenv('def_param_region') or 'ap-northeast-1'))
 
-    # cache
+    # params['cache']
     if params.get('cache') == 'never':
         S3_BUCKET = ''
     elif params.get('cache', '').isdigit():
@@ -61,12 +82,11 @@ def create_s3obj_fullpath(params):
     # argkey has printable characters only
     argkey = '_' + re.sub(r'[^\u0020-\u007E]', '', params.get('arg', ''))
 
-    if len(argkey) > 1:
-        fullname_pre += argkey
+    fullname_pre += argkey if len(argkey) >= 2 else ''
 
-    return fullname_pre + '.json'
+    return f'{fullname_pre}.json'
 
-def get_s3_content_and_timestamp_if_exists(s3obj_fullname, cache):
+def get_s3_content_and_timestamp_if_exists(s3obj_fullname):
 
     try:
         s3response = s3.Object(S3_BUCKET, s3obj_fullname).get()
@@ -99,7 +119,7 @@ def customize_content_after_s3put(content, params):
     # After  :  { "Instances" : [ <EC2_A>, <EC2_B>, <EC2_C> ] }
     if params['api'] == 'ec2:describe_instances' and params.get('flatten') != None:
         content = {
-            'Instances' : sum( [ reservation['Instances'] for reservation in content.get('Reservations') ], [] )
+            'Instances' : sum( [ reservation.get('Instances', []) for reservation in content.get('Reservations', []) ], [] )
         }
 
     # URL parameter has "simpletag=Tags" or "simpletag=TagList"
@@ -130,26 +150,49 @@ def filter_data_by_select_keys(data, select_keys):
         new_d[index] = {}
         for sel_key in select_keys:
 
-            # Example) filter by "Id:Status"
-            #   Before [ { "Id" : "v1", "Status" : "Ok", "Type" : "large" }, { "Id" : "v2", Status" : "Failed", "Type" : "small" } ]
-            #   After  [ { "Id" : "v1", "Status" : "Ok" }, { "Id" : "v2", "Status" : "Failed" } ]
-            if d.get(sel_key) != None:
-                new_d[index][sel_key] = d[sel_key]
-
-            # Example) Before filter by "Id:State.Name":
-            #   Before [ { "Id" : "v1", "State" : { "Code" : 16, "Name": "running" } } ]
-            #   After  [ { "Id" : "v1", "State.Name" : "running" } ]
-            elif '.' in sel_key:
-                dot_split = sel_key.split('.')
-                if len(dot_split) == 2 and d.get(dot_split[0]) != None and isinstance(d[ dot_split[0] ], dict) and d[ dot_split[0] ].get(dot_split[1]) != None:
-                    new_d[index][sel_key] = d[ dot_split[0] ][ dot_split[1] ]
+            if sel_key.count('.') <= 6:
+                part_data = select_partial_data(sel_key, d)
+                if part_data:
+                    new_d[index][sel_key] = part_data
 
     return { data_key : new_d }
 
-def return_to_client(body, http_code=200, modified_time=None, content_type='application/json'):
+
+def select_partial_data(sel_key, d):
+
+    sel_key_split = sel_key.split('.', 1)
+    part_d = None
+
+    if len(sel_key_split) == 1:
+        if type(d) is dict:
+            return d.get(sel_key)
+        else:
+            return None
+
+    next_sel_key = sel_key_split[1]
+
+    if len(sel_key_split[0]) == 0:
+        if type(d) is list:
+            part_d = []
+            for d_each in d:
+                part_d.append( select_partial_data(next_sel_key, d_each) )
+
+            if len(part_d) >= 1 and not any(part_d):
+                part_d = None
+    else:
+        if type(d) is dict:
+            in_d = d.get( sel_key_split[0] )
+            if in_d:
+                part_d = select_partial_data(next_sel_key, in_d)
+
+    return part_d
+
+
+def return_to_client(body, http_code=200, modified_time=None, cache_sec=60, content_type='application/json'):
 
     ret_headers = {
-        'Content-Type': content_type + ';charset=utf-8'
+        'Content-Type': f'{content_type};charset=utf-8',
+        'Cache-Control': f'max-age={cache_sec}'
     }
 
     if isinstance(modified_time, datetime):
@@ -180,11 +223,13 @@ def lambda_handler(event, context):
 
     content, cache_datetime = None, None
     if S3_BUCKET != '':
-        content, cache_datetime = get_s3_content_and_timestamp_if_exists( create_s3obj_fullpath(params), params.get('cache') )
+        content, cache_datetime = get_s3_content_and_timestamp_if_exists( create_s3obj_fullpath(params) )
 
     indent = int(params['indent']) if params.get('indent', '').isdigit() and int(params['indent']) in range(0, 64) else -1
 
     select_keys = params.get('select', '').split(':')
+
+    return_opt['cache_sec'] = min(max(1, int(params['cache'])), 604800) if re.match('^[0-9]+', params['cache']) else 60
 
     if content != None and cache_datetime > datetime.now(timezone.utc) - timedelta(seconds=int(params['cache'])):
         # valid cache found
@@ -212,7 +257,7 @@ def lambda_handler(event, context):
     
         except Exception as e:
             # NG (HTTP 400)
-            return return_to_client({ ERR_MSG_KEY : str(e) }, **return_opt)
+            return return_to_client({ ERR_MSG_KEY : f'{e} provable wrong api name' }, **return_opt)
 
         return_opt['modified_time'] = datetime.now(timezone.utc)
 
