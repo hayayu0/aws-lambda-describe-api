@@ -35,7 +35,7 @@ Dedicated functionality for CloudWatch's **get_metric_widget_image**.
 - Required IAM Policies:
   - ReadOnlyAccess
   - AWSLambdaBasicExecutionRole
-  - AmazonS3FullAccess (if using cache)動作環境
+  - AmazonS3FullAccess (if using cache)
 
 ## Example Execution
 
@@ -47,7 +47,7 @@ List of Availability Zones
 https://xxxxxxxx.lambda-url.us-east-1.on.aws/?api=ec2:describe_availability_zones&region=us-east-1&select=ZoneName:ZoneId
 ```
 
-- 応答
+- Response
 
 ```json
 {
@@ -82,7 +82,7 @@ https://xxxxxxxx.lambda-url.us-east-1.on.aws/?api=ec2:describe_availability_zone
 
 ### Other Usage Examples
 
-Several usage examples are provided in [examples.md](examples.md)
+Several usage examples are provided in [examples.md](examples.md).
 
 ## AWS Lambda Environment Variables
 
